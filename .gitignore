@@ -1,0 +1,86 @@
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Editor files
+# =========================
+.vscode/
+*.swp
+*.swo
+
+# =========================
+# Logs and reports
+# =========================
+*.log
+*.jou
+*.rpt
+*.str
+*.tmp
+*.bak
+
+# =========================
+# ModelSim / Questa
+# =========================
+work/
+transcript
+vsim.wlf
+*.wlf
+*.vcd
+*.ucdb
+*.dbg
+*.ini
+
+# =========================
+# Vivado / Xilinx generated files
+# =========================
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.gen/
+*.xpr
+*.bit
+*.bin
+*.ltx
+*.dcp
+*.edf
+*.edif
+*.mmi
+*.mcs
+
+# =========================
+# Quartus generated files
+# =========================
+db/
+incremental_db/
+output_files/
+simulation/
+*.qpf
+*.qsf
+*.sof
+*.pof
+*.jdi
+*.smsg
+*.summary
+*.done
+*.pin
+*.fit.*
+*.sta.*
+*.asm.*
+
+# =========================
+# Keep source files
+# =========================
+!rtl/**/*.v
+!rtl/**/*.sv
+!tb/**/*.v
+!tb/**/*.sv
+!constraints/**/*.xdc
+!docs/**/*.md
+!README.md
