@@ -38,6 +38,12 @@ endtask
     localparam OP_XOR = 6'b000100;
     localparam OP_NOT = 6'b000101;
 
+    localparam EQ = 6'b000110;
+    localparam LT_UNSIGNED = 6'b000111;
+    localparam GT_UNSIGNED = 6'b001000;
+    localparam LT_SIGNED = 6'b001001;
+    localparam GT_SIGNED = 6'b001010;
+
     initial begin
         run_test(6'b000000, 10, 20); // ADD
         run_test(6'b000001, 50, 15); // SUB
@@ -45,6 +51,11 @@ endtask
         run_test(6'b000011, 32'h1111_1111,  32'h0000_0000);  // OR
         run_test(6'b000100, 32'h1100_1100,  32'h0011_0011);  // XOR
         run_test(6'b000101, 32'h1100_1100, 32'h0000_0000);  // NOT 
+        /*run_test(6'b000110, 32'h1111_1111, 32'h1111_1111); // 1
+        run_test(6'b000111, 32'h1111_1111, 32'h1111_1110); //0
+        run_test(6'b001000, 32'h1111_1111, 32'h1111_1110); // 1
+        run_test(6'b001001, 32'hFFFF_FFFF, 32'h1111_1111); //1
+        run_test(6'b001010, 32'hFFFF_FFFF, 32'h1111_1111); //0 */
     end
     
 endmodule
