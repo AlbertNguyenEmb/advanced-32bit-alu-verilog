@@ -29,10 +29,26 @@ module alu32_core(
     localparam OP_SLL = 6'b001011;
     localparam OP_SRL = 6'b001100;
     localparam OP_SRA = 6'b001101;
+    localparam OP_FSL = 6'b001110;
+    localparam OP_FSR = 6'b001111;
+
+    //Create funnel shift result
+    wire [63:0] funnel_concat;
+    wire [63:0] fsl_temp;
+    wire [63:0] fsr_temp;
+    wire [31:0] fsl_result;
+    wire [31:0] fsr_result;
+    
+    assign funnel_concat = {A, B};
+    
+    assign fsl_temp = funnel_concat << shamt;
+    assign fsr_result = funnel_concat >> shamt;
+
+    assign fsl_result = fsl_temp[63:32];
+    assign fsr_result = fsr_temp[31:0];
     //Create bit carry
     wire [32:0] add_result;
     wire [32:0] sub_result;
-
     assign add_result = {1'b0, A} + {1'b0, B};
     assign sub_ext = {1'b0, A} - {1'b0, B};
     assign Carry = (opcode == OP_ADD) ? add_result[32] : 1'b0;
@@ -59,6 +75,8 @@ module alu32_core(
             OP_SLL: Result = A << shamt;
             OP_SRL: Result = A >> shamt;
             OP_SRA: Result = $signed(A) >>> shamt;
+            OP_FSL: Result = fsl_result;
+            OP_FSR: Result = fsr_result;
             default: Result = 32'h0000_0000;
         endcase
     end

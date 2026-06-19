@@ -35,10 +35,12 @@ endtask
 task run_test_shift;
     input [5:0] op;
     input [31:0] a;
+    input [31:0] b;
     input [4:0] shift_amt;
 begin
     opcode = op;
     A = a;
+    B = b;
     shamt = shift_amt;
     #10;
     $display("Time = %0t, Opcode = %0b, A = %0h, shamt = %d, Result = %0d", 
@@ -59,6 +61,8 @@ endtask
     localparam LT_SIGNED = 6'b001001;
     localparam GT_SIGNED = 6'b001010;
 
+    localparam OP_FSL = 6'b001110;
+    localparam OP_FSR = 6'b001111;
     initial begin
         /*
         //Test Arithmetic and logic
@@ -75,9 +79,11 @@ endtask
         run_test(6'b001001, 32'hFFFF_FFFF, 32'h1111_1111); //1
         run_test(6'b001010, 32'hFFFF_FFFF, 32'h1111_1111); //0 */
         //Test shift
-        run_test_shift(6'b001011, 32'h1111_1111, 5'b01000); //SLL 2bit -> 1111_1100
-        run_test_shift(6'b001100, 32'h1111_1111, 5'b01000); //SRL 2bit -> 0011_1111
-        run_test_shift(6'b001101, 32'h1100_0000, 5'b01000); //SRA 2bit -> 1110_0000
+        run_test_shift(6'b001011, 32'h1111_1111, 32'h1111_1111, 5'b01000); //SLL 2bit -> 1111_1100
+        run_test_shift(6'b001100, 32'h1111_1111, 32'h1111_1111, 5'b01000); //SRL 2bit -> 0011_1111
+        run_test_shift(6'b001101, 32'h1100_0000, 32'h1111_1111, 5'b01000); //SRA 2bit -> 1110_0000
+        run_test_shift(6'b001110, 32'h1234_5678, 32'hABCD_EF00, 5'b01000); //FSL Result = 345678AB
+        run_test_shift(6'b001111, 32'h1234_5678, 32'hABCD_EF00, 5'b01000); //FSR Result = 78ABCDEF
     end
     
 endmodule
