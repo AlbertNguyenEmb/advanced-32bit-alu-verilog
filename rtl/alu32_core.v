@@ -31,7 +31,15 @@ module alu32_core(
     localparam OP_SRA = 6'b001101;
     localparam OP_FSL = 6'b001110;
     localparam OP_FSR = 6'b001111;
-
+    //Extension opcodes
+    localparam OP_ZEXT16 = 6'b010000;
+    localparam OP_SEXT16 = 6'b010001;
+    // Reverse opcodes
+    localparam OP_REV1 = 6'b010010;
+    localparam OP_REV2 = 6'b010011;
+    localparam OP_REV4 = 6'b010100;
+    localparam OP_REV8 = 6'b010101;
+    localparam OP_REV16 = 6'b010110;
     //Create funnel shift result
     wire [63:0] funnel_concat;
     wire [63:0] fsl_temp;
@@ -56,6 +64,7 @@ module alu32_core(
     assign Overflow = ((opcode == OP_ADD)
                         && ((~A[31] && ~B[31] && Result[31]) ||
                             (A[31] && B[31] && ~Result[31])));
+    integer i;
     always @(*) begin
         case (opcode)
             //Arithmetic and logic
@@ -77,9 +86,41 @@ module alu32_core(
             OP_SRA: Result = $signed(A) >>> shamt;
             OP_FSL: Result = fsl_result;
             OP_FSR: Result = fsr_result;
-            default: Result = 32'h0000_0000;
-        endcase
-    end
+            //Extension
+            OP_ZEXT16: Result = {16'b0, A[15:0]};
+            OP_SEXT16: Result = {{16{A[15]}}, A[15:0]};
+            //Reverse
+            OP_REV1: begin
+                for (i = 0; i < 32; i = i + 1) begin
+                    Result[i] = A[31-i];
+                end
+            end
+            OP_REV2: begin
+                for (i = 0; i < 32; i = i + 1) begin
+                    Result[(2*i) +: 2] = A[(2*(15 - i)) +: 2];
+                end
+            end
+            OP_REV4: begin
+                Result[3:0]    = A[31:28];
+                Result[7:4]    = A[27:24];
+                Result[11:8]   = A[23:20];
+                Result[15:12]  = A[19:16];
+                Result[19:16]  = A[15:12];
+                Result[23:20]  = A[11:8];
+                Result[27:24]  = A[7:4];
+                Result[31:28]  = A[3:0];
+            end
+
+            OP_REV8: begin
+                Result = {A[7:0], A[15:8], A[23:16], A[31:24]};
+            end
+
+            OP_REV16: begin
+                Result = {A[15:0], A[31:16]};
+            end
+                default: Result = 32'h0000_0000;
+            endcase
+        end
 
     assign Zero = (Result == 32'h0000_0000);
     assign Negative = (Result[31]);
