@@ -9,8 +9,8 @@ module alu32_core(
     output wire Negative,
     output wire Carry,
     output wire Overflow
-    
-);
+);  
+    reg [5:0] bit_count;
     //Opcode definitions
     //Basic arithmetic and logic opcodes
     localparam OP_ADD = 6'b000000;
@@ -40,6 +40,14 @@ module alu32_core(
     localparam OP_REV4 = 6'b010100;
     localparam OP_REV8 = 6'b010101;
     localparam OP_REV16 = 6'b010110;
+    // OR-Combine opcode
+    localparam OP_ORC1 = 6'b0101111;
+    localparam OP_ORC2 = 6'b0110000;
+    localparam OP_ORC4 = 6'b0110001;
+    localparam OP_ORC8 = 6'b0110010;
+    localparam OP_ORC16 = 6'b0110011;
+    // Bitcount opcode
+    localparam OP_BITCOUNT = 6'b0110100;
     //Create funnel shift result
     wire [63:0] funnel_concat;
     wire [63:0] fsl_temp;
@@ -118,7 +126,33 @@ module alu32_core(
             OP_REV16: begin
                 Result = {A[15:0], A[31:16]};
             end
-                default: Result = 32'h0000_0000;
+            ORC1: begin
+                Result = A;
+            end
+            ORC2: begin
+                for (i = 0; i < 16; i = i + 1) begin
+                    Result[i] = |A[(2*i) +: 2];
+                end
+            end
+            OP_ORC8: begin
+                for (i = 0; i < 4; i = i + 1) begin
+                    Result[i] = |A[(8*i) +: 8];
+                end
+            end
+            OP_ORC16: begin
+                for (i = 0; i < 2; i = i + 1) begin
+                    Result[i] = |A[(16*i) +: 16];
+                end
+            end
+            OP_BITCOUNT: begin
+                bit_count = 6'd0;
+
+                for (i = 0; i < 32; i = i + 1) begin
+                    bit_count = bit_count + A[i];
+                end
+                Result = {26'd0, bit_count};
+            end
+            default: Result = 32'h0000_0000;
             endcase
         end
 

@@ -76,6 +76,14 @@ endtask
     localparam OP_REV4 = 6'b010100;
     localparam OP_REV8 = 6'b010101;
     localparam OP_REV16 = 6'b010110;
+    // OR-Combine opcode
+    localparam OP_ORC1 = 6'b0101111;
+    localparam OP_ORC2 = 6'b0110000;
+    localparam OP_ORC4 = 6'b0110001;
+    localparam OP_ORC8 = 6'b0110010;
+    localparam OP_ORC16 = 6'b0110011;
+    // Bitcount opcode
+    localparam OP_BITCOUNT = 6'b0110100;
     initial begin
         /*
         //Test Arithmetic and logic
@@ -97,7 +105,6 @@ endtask
         run_test_shift(6'b001101, 32'h1100_0000, 32'h1111_1111, 5'b01000); //SRA 2bit -> 1110_0000
         run_test_shift(6'b001110, 32'h1234_5678, 32'hABCD_EF00, 5'b01000); //FSL Result = 345678AB
         run_test_shift(6'b001111, 32'h1234_5678, 32'hABCD_EF00, 5'b01000); //FSR Result = 78ABCDEF
-        */
         //ZEXT16 test
         A = 32'hFFFF_8103;
         B = 32'h0000_1111;
@@ -135,6 +142,54 @@ endtask
         opcode = OP_REV16;
         #10;
         $display("REV16: A=%h, Result=%h, expected=56781234", A, Result);
+        */
+        // ORC8 test
+        A = 32'h1200_00F0;
+        B = 32'd0;
+        shamt = 5'd0;
+        opcode = OP_ORC8;
+        #10;
+        $display("ORC8: A=%h, Result=%h, expected=00000009", A, Result);
+        // ORC16 test
+        A = 32'h0000_1234;
+        opcode = OP_ORC16;
+        #10;
+        $display("ORC16: A=%h, Result=%h, expected=00000001", A, Result);
+
+        A = 32'h1234_0000;
+        opcode = OP_ORC16;
+        #10;
+        $display("ORC16: A=%h, Result=%h, expected=00000002", A, Result);
+
+        A = 32'h1234_5678;
+        opcode = OP_ORC16;
+        #10;
+        $display("ORC16: A=%h, Result=%h, expected=00000003", A, Result);
+        // BITCOUNT tests
+        A = 32'h0000_0000;
+        opcode = OP_BITCOUNT;
+        #10;
+        $display("BITCOUNT: A=%h, Result=%0d, expected=0", A, Result);
+
+        A = 32'h0000_000F;
+        opcode = OP_BITCOUNT;
+        #10;
+        $display("BITCOUNT: A=%h, Result=%0d, expected=4", A, Result);
+
+        A = 32'hFFFF_0000;
+        opcode = OP_BITCOUNT;
+        #10;
+        $display("BITCOUNT: A=%h, Result=%0d, expected=16", A, Result);
+
+        A = 32'hFFFF_FFFF;
+        opcode = OP_BITCOUNT;
+        #10;
+        $display("BITCOUNT: A=%h, Result=%0d, expected=32", A, Result);
+
+        A = 32'h8000_0001;
+        opcode = OP_BITCOUNT;
+        #10;
+        $display("BITCOUNT: A=%h, Result=%0d, expected=2", A, Result);
     end
     
 endmodule
