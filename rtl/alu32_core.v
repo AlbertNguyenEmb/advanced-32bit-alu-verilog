@@ -42,12 +42,23 @@ module alu32_core(
     localparam OP_REV16 = 6'b010110;
     // OR-Combine opcode
     localparam OP_ORC1 = 6'b0101111;
-    localparam OP_ORC2 = 6'b0110000;
-    localparam OP_ORC4 = 6'b0110001;
-    localparam OP_ORC8 = 6'b0110010;
-    localparam OP_ORC16 = 6'b0110011;
+    localparam OP_ORC2 = 6'b110000;
+    localparam OP_ORC4 = 6'b110001;
+    localparam OP_ORC8 = 6'b110010;
+    localparam OP_ORC16 = 6'b110011;
     // Bitcount opcode
-    localparam OP_BITCOUNT = 6'b0110100;
+    localparam OP_BITCOUNT = 6'b110100;
+    // Shuffle / Unshuffle opcodes tiếp nối
+    localparam OP_SHFL1    = 6'b110101; 
+    localparam OP_UNSHFL1  = 6'b110110; 
+    localparam OP_SHFL2    = 6'b110111;
+    localparam OP_UNSHFL2  = 6'b111000; 
+    localparam OP_SHFL4    = 6'b111001; 
+    localparam OP_UNSHFL4  = 6'b111010; 
+    localparam OP_SHFL8    = 6'b111011; 
+    localparam OP_UNSHFL8  = 6'b111100; 
+    localparam OP_SHFL16   = 6'b111101; 
+    localparam OP_UNSHFL16 = 6'b111110;
     //Create funnel shift result
     wire [63:0] funnel_concat;
     wire [63:0] fsl_temp;
@@ -151,6 +162,69 @@ module alu32_core(
                     bit_count = bit_count + A[i];
                 end
                 Result = {26'd0, bit_count};
+            end
+            OP_SHFL1: begin
+                for (i = 0; i < 16; i = i + 1) begin
+                    Result[2*i]     = A[i];
+                    Result[2*i + 1] = A[i + 16];
+                end
+            end
+
+            OP_UNSHFL1: begin
+                for (i = 0; i < 16; i = i + 1) begin
+                    Result[i]      = A[2*i];
+                    Result[i + 16] = A[2*i + 1];
+                end
+            end
+
+            OP_SHFL2: begin
+                for (i = 0; i < 8; i = i + 1) begin
+                    Result[(4*i) +: 2]     = A[(2*i) +: 2];
+                    Result[(4*i + 2) +: 2] = A[(2*(i + 8)) +: 2];
+                end
+            end
+
+            OP_UNSHFL2: begin
+                for (i = 0; i < 8; i = i + 1) begin
+                    Result[(2*i) +: 2]       = A[(4*i) +: 2];
+                    Result[(2*(i + 8)) +: 2] = A[(4*i + 2) +: 2];
+                end
+            end
+
+            OP_SHFL4: begin
+                for (i = 0; i < 4; i = i + 1) begin
+                    Result[(8*i) +: 4]     = A[(4*i) +: 4];
+                    Result[(8*i + 4) +: 4] = A[(4*(i + 4)) +: 4];
+                end
+            end
+
+            OP_UNSHFL4: begin
+                for (i = 0; i < 4; i = i + 1) begin
+                    Result[(4*i) +: 4]       = A[(8*i) +: 4];
+                    Result[(4*(i + 4)) +: 4] = A[(8*i + 4) +: 4];
+                end
+            end
+
+            OP_SHFL8: begin
+                for (i = 0; i < 2; i = i + 1) begin
+                    Result[(16*i) +: 8]     = A[(8*i) +: 8];
+                    Result[(16*i + 8) +: 8] = A[(8*(i + 2)) +: 8];
+                end
+            end
+
+            OP_UNSHFL8: begin
+                for (i = 0; i < 2; i = i + 1) begin
+                    Result[(8*i) +: 8]       = A[(16*i) +: 8];
+                    Result[(8*(i + 2)) +: 8] = A[(16*i + 8) +: 8];
+                end
+            end
+
+            OP_SHFL16: begin
+                Result = A;
+            end
+
+            OP_UNSHFL16: begin
+                Result = A;
             end
             default: Result = 32'h0000_0000;
             endcase

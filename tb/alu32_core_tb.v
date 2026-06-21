@@ -84,6 +84,17 @@ endtask
     localparam OP_ORC16 = 6'b0110011;
     // Bitcount opcode
     localparam OP_BITCOUNT = 6'b0110100;
+    // Shuffle / Unshuffle opcodes 
+    localparam OP_SHFL1    = 6'b110101; 
+    localparam OP_UNSHFL1  = 6'b110110; 
+    localparam OP_SHFL2    = 6'b110111;
+    localparam OP_UNSHFL2  = 6'b111000; 
+    localparam OP_SHFL4    = 6'b111001; 
+    localparam OP_UNSHFL4  = 6'b111010; 
+    localparam OP_SHFL8    = 6'b111011; 
+    localparam OP_UNSHFL8  = 6'b111100; 
+    localparam OP_SHFL16   = 6'b111101; 
+    localparam OP_UNSHFL16 = 6'b111110;
     initial begin
         /*
         //Test Arithmetic and logic
@@ -190,6 +201,20 @@ endtask
         opcode = OP_BITCOUNT;
         #10;
         $display("BITCOUNT: A=%h, Result=%0d, expected=2", A, Result);
+
+        // SHFL4 test
+        A = 32'h1234_5678;
+        B = 32'd0;
+        shamt = 5'd0;
+        opcode = OP_SHFL4;
+        #10;
+        $display("SHFL4: A=%h, Result=%h, expected=15263748", A, Result);
+
+        // UNSHFL4 test
+        A = Result;
+        opcode = OP_UNSHFL4;
+        #10;
+        $display("UNSHFL4: A=%h, Result=%h, expected=12345678", A, Result);
     end
     
 endmodule
