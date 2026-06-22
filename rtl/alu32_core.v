@@ -74,6 +74,9 @@ module alu32_core(
     //Shift-and-Add Multiplier
     localparam OP_MUL_LOW = 7'b1000001;
     localparam OP_MUL_HIGH = 7'b1000010;
+    //Booth multiplier32
+    localparam OP_BOOTH_MUL_LOW  = 7'b1000011;
+    localparam OP_BOOTH_MUL_HIGH = 7'b1000100;
     //Create funnel shift result
     wire [63:0] funnel_concat;
     wire [63:0] fsl_temp;
