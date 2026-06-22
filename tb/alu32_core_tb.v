@@ -3,7 +3,7 @@ module alu32_core_tb();
 
 reg [31:0] A;
 reg [31:0] B;
-reg [5:0] opcode;
+reg [6:0] opcode;
 reg [4:0] shamt;
 wire [31:0] Result;
 wire Zero;
@@ -23,7 +23,7 @@ alu32_core dut(
 );
 
 task run_test;
-    input [5:0] op;
+    input [6:0] op;
     input [31:0] a, b;
 begin
     opcode = op;
@@ -36,7 +36,7 @@ end
 endtask
 
 task run_test_shift;
-    input [5:0] op;
+    input [6:0] op;
     input [31:0] a;
     input [31:0] b;
     input [4:0] shift_amt;
@@ -51,50 +51,63 @@ begin
 end
 endtask
     //Opcode definitions
-    localparam OP_ADD = 6'b000000;
-    localparam OP_SUB = 6'b000001;
-    localparam OP_AND = 6'b000010;
-    localparam OP_OR = 6'b000011;
-    localparam OP_XOR = 6'b000100;
-    localparam OP_NOT = 6'b000101;
-
-    localparam EQ = 6'b000110;
-    localparam LT_UNSIGNED = 6'b000111;
-    localparam GT_UNSIGNED = 6'b001000;
-    localparam LT_SIGNED = 6'b001001;
-    localparam GT_SIGNED = 6'b001010;
-
-    localparam OP_FSL = 6'b001110;
-    localparam OP_FSR = 6'b001111;
-
-    //Extension opcodes
-    localparam OP_ZEXT16 = 6'b010000;
-    localparam OP_SEXT16 = 6'b010001;
+    // Basic arithmetic and logic opcodes
+    localparam OP_ADD = 7'b0000000;
+    localparam OP_SUB = 7'b0000001;
+    localparam OP_AND = 7'b0000010;
+    localparam OP_OR  = 7'b0000011;
+    localparam OP_XOR = 7'b0000100;
+    localparam OP_NOT = 7'b0000101;
+    
+    // Comparision opcodes
+    localparam EQ          = 7'b0000110;
+    localparam LT_UNSIGNED = 7'b0000111;
+    localparam GT_UNSIGNED = 7'b0001000;
+    localparam LT_SIGNED   = 7'b0001001;
+    localparam GT_SIGNED   = 7'b0001010;
+    
+    // Shift opcodes
+    localparam OP_SLL = 7'b0001011;
+    localparam OP_SRL = 7'b0001100;
+    localparam OP_SRA = 7'b0001101;
+    localparam OP_FSL = 7'b0001110;
+    localparam OP_FSR = 7'b0001111;
+    
+    // Extension opcodes
+    localparam OP_ZEXT16 = 7'b0010000;
+    localparam OP_SEXT16 = 7'b0010001;
+    
     // Reverse opcodes
-    localparam OP_REV1 = 6'b010010;
-    localparam OP_REV2 = 6'b010011;
-    localparam OP_REV4 = 6'b010100;
-    localparam OP_REV8 = 6'b010101;
-    localparam OP_REV16 = 6'b010110;
+    localparam OP_REV1  = 7'b0010010;
+    localparam OP_REV2  = 7'b0010011;
+    localparam OP_REV4  = 7'b0010100;
+    localparam OP_REV8  = 7'b0010101;
+    localparam OP_REV16 = 7'b0010110;
+    
     // OR-Combine opcode
-    localparam OP_ORC1 = 6'b0101111;
-    localparam OP_ORC2 = 6'b0110000;
-    localparam OP_ORC4 = 6'b0110001;
-    localparam OP_ORC8 = 6'b0110010;
-    localparam OP_ORC16 = 6'b0110011;
+    localparam OP_ORC1  = 7'b0101111; 
+    localparam OP_ORC2  = 7'b0110000;
+    localparam OP_ORC4  = 7'b0110001;
+    localparam OP_ORC8  = 7'b0110010;
+    localparam OP_ORC16 = 7'b0110011;
+    
     // Bitcount opcode
-    localparam OP_BITCOUNT = 6'b0110100;
-    // Shuffle / Unshuffle opcodes 
-    localparam OP_SHFL1    = 6'b110101; 
-    localparam OP_UNSHFL1  = 6'b110110; 
-    localparam OP_SHFL2    = 6'b110111;
-    localparam OP_UNSHFL2  = 6'b111000; 
-    localparam OP_SHFL4    = 6'b111001; 
-    localparam OP_UNSHFL4  = 6'b111010; 
-    localparam OP_SHFL8    = 6'b111011; 
-    localparam OP_UNSHFL8  = 6'b111100; 
-    localparam OP_SHFL16   = 6'b111101; 
-    localparam OP_UNSHFL16 = 6'b111110;
+    localparam OP_BITCOUNT = 7'b0110100;
+    
+    // Shuffle / Unshuffle opcodes
+    localparam OP_SHFL1    = 7'b0110101; 
+    localparam OP_UNSHFL1  = 7'b0110110; 
+    localparam OP_SHFL2    = 7'b0110111;
+    localparam OP_UNSHFL2  = 7'b0111000; 
+    localparam OP_SHFL4    = 7'b0111001; 
+    localparam OP_UNSHFL4  = 7'b0111010; 
+    localparam OP_SHFL8    = 7'b0111011; 
+    localparam OP_UNSHFL8  = 7'b0111100; 
+    localparam OP_SHFL16   = 7'b0111101; 
+    localparam OP_UNSHFL16 = 7'b0111110;
+    //Carry-less Multiplication — CLMUL
+    localparam OP_CLMUL_LOW = 7'b0111111;
+    localparam OP_CLMUL_HIGH = 7'b1000000;
     initial begin
         /*
         //Test Arithmetic and logic
@@ -153,7 +166,7 @@ endtask
         opcode = OP_REV16;
         #10;
         $display("REV16: A=%h, Result=%h, expected=56781234", A, Result);
-        */
+        
         // ORC8 test
         A = 32'h1200_00F0;
         B = 32'd0;
@@ -214,7 +227,31 @@ endtask
         A = Result;
         opcode = OP_UNSHFL4;
         #10;
-        $display("UNSHFL4: A=%h, Result=%h, expected=12345678", A, Result);
+        $display("UNSHFL4: A=%h, Result=%h, expected=12345678", A, Result); */
+        // CLMUL test 1: 4-bit example
+        A = 32'h0000_000B; // 1011
+        B = 32'h0000_0005; // 0101
+        opcode = OP_CLMUL_LOW;
+        #10;
+        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=00000027", A, B, Result);
+        // CLMUL test 2: A * 1 = A
+        A = 32'h1234_5678;
+        B = 32'h0000_0001;
+        opcode = OP_CLMUL_LOW;
+        #10;
+        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=12345678", A, B, Result);
+        // CLMUL high test
+        A = 32'h8000_0000;
+        B = 32'h0000_0002;
+        opcode = OP_CLMUL_HIGH;
+        #10;
+        $display("CLMUL_HIGH: A=%h, B=%h, Result=%h, expected=00000001", A, B, Result);
+        // CLMUL low test
+        A = 32'h8000_0000;
+        B = 32'h0000_0002;
+        opcode = OP_CLMUL_LOW;
+        #10;
+        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result);
     end
     
 endmodule

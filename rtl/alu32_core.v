@@ -2,7 +2,7 @@
 module alu32_core(
     input wire [31:0] A,
     input wire [31:0] B,
-    input wire [5:0] opcode,
+    input wire [6:0] opcode,
     input wire [4:0] shamt,
     output reg [31:0] Result,
     output wire Zero,
@@ -11,65 +11,76 @@ module alu32_core(
     output wire Overflow
 );  
     reg [5:0] bit_count;
+    reg [7:0] crc8_value;
     //Opcode definitions
-    //Basic arithmetic and logic opcodes
-    localparam OP_ADD = 6'b000000;
-    localparam OP_SUB = 6'b000001;
-    localparam OP_AND = 6'b000010;
-    localparam OP_OR = 6'b000011;
-    localparam OP_XOR = 6'b000100;
-    localparam OP_NOT = 6'b000101;
-    //Comaparision opcodes
-    localparam EQ = 6'b000110;
-    localparam LT_UNSIGNED = 6'b000111;
-    localparam GT_UNSIGNED = 6'b001000;
-    localparam LT_SIGNED = 6'b001001;
-    localparam GT_SIGNED = 6'b001010;
-    //Shift opcodes
-    localparam OP_SLL = 6'b001011;
-    localparam OP_SRL = 6'b001100;
-    localparam OP_SRA = 6'b001101;
-    localparam OP_FSL = 6'b001110;
-    localparam OP_FSR = 6'b001111;
-    //Extension opcodes
-    localparam OP_ZEXT16 = 6'b010000;
-    localparam OP_SEXT16 = 6'b010001;
+    // Basic arithmetic and logic opcodes
+    localparam OP_ADD = 7'b0000000;
+    localparam OP_SUB = 7'b0000001;
+    localparam OP_AND = 7'b0000010;
+    localparam OP_OR  = 7'b0000011;
+    localparam OP_XOR = 7'b0000100;
+    localparam OP_NOT = 7'b0000101;
+    
+    // Comparision opcodes
+    localparam EQ          = 7'b0000110;
+    localparam LT_UNSIGNED = 7'b0000111;
+    localparam GT_UNSIGNED = 7'b0001000;
+    localparam LT_SIGNED   = 7'b0001001;
+    localparam GT_SIGNED   = 7'b0001010;
+    
+    // Shift opcodes
+    localparam OP_SLL = 7'b0001011;
+    localparam OP_SRL = 7'b0001100;
+    localparam OP_SRA = 7'b0001101;
+    localparam OP_FSL = 7'b0001110;
+    localparam OP_FSR = 7'b0001111;
+    
+    // Extension opcodes
+    localparam OP_ZEXT16 = 7'b0010000;
+    localparam OP_SEXT16 = 7'b0010001;
+    
     // Reverse opcodes
-    localparam OP_REV1 = 6'b010010;
-    localparam OP_REV2 = 6'b010011;
-    localparam OP_REV4 = 6'b010100;
-    localparam OP_REV8 = 6'b010101;
-    localparam OP_REV16 = 6'b010110;
+    localparam OP_REV1  = 7'b0010010;
+    localparam OP_REV2  = 7'b0010011;
+    localparam OP_REV4  = 7'b0010100;
+    localparam OP_REV8  = 7'b0010101;
+    localparam OP_REV16 = 7'b0010110;
+    
     // OR-Combine opcode
-    localparam OP_ORC1 = 6'b0101111;
-    localparam OP_ORC2 = 6'b110000;
-    localparam OP_ORC4 = 6'b110001;
-    localparam OP_ORC8 = 6'b110010;
-    localparam OP_ORC16 = 6'b110011;
+    localparam OP_ORC1  = 7'b0101111; 
+    localparam OP_ORC2  = 7'b0110000;
+    localparam OP_ORC4  = 7'b0110001;
+    localparam OP_ORC8  = 7'b0110010;
+    localparam OP_ORC16 = 7'b0110011;
+    
     // Bitcount opcode
-    localparam OP_BITCOUNT = 6'b110100;
-    // Shuffle / Unshuffle opcodes tiếp nối
-    localparam OP_SHFL1    = 6'b110101; 
-    localparam OP_UNSHFL1  = 6'b110110; 
-    localparam OP_SHFL2    = 6'b110111;
-    localparam OP_UNSHFL2  = 6'b111000; 
-    localparam OP_SHFL4    = 6'b111001; 
-    localparam OP_UNSHFL4  = 6'b111010; 
-    localparam OP_SHFL8    = 6'b111011; 
-    localparam OP_UNSHFL8  = 6'b111100; 
-    localparam OP_SHFL16   = 6'b111101; 
-    localparam OP_UNSHFL16 = 6'b111110;
+    localparam OP_BITCOUNT = 7'b0110100;
+    
+    // Shuffle / Unshuffle opcodes
+    localparam OP_SHFL1    = 7'b0110101; 
+    localparam OP_UNSHFL1  = 7'b0110110; 
+    localparam OP_SHFL2    = 7'b0110111;
+    localparam OP_UNSHFL2  = 7'b0111000; 
+    localparam OP_SHFL4    = 7'b0111001; 
+    localparam OP_UNSHFL4  = 7'b0111010; 
+    localparam OP_SHFL8    = 7'b0111011; 
+    localparam OP_UNSHFL8  = 7'b0111100; 
+    localparam OP_SHFL16   = 7'b0111101; 
+    localparam OP_UNSHFL16 = 7'b0111110;
+    //Carry-less Multiplication — CLMUL
+    localparam OP_CLMUL_LOW = 7'b0111111;
+    localparam OP_CLMUL_HIGH = 7'b1000000;
     //Create funnel shift result
     wire [63:0] funnel_concat;
     wire [63:0] fsl_temp;
     wire [63:0] fsr_temp;
     wire [31:0] fsl_result;
     wire [31:0] fsr_result;
-    
+    reg [63:0] clmul_product;
     assign funnel_concat = {A, B};
     
     assign fsl_temp = funnel_concat << shamt;
-    assign fsr_result = funnel_concat >> shamt;
+    assign fsr_temp = funnel_concat >> shamt;
 
     assign fsl_result = fsl_temp[63:32];
     assign fsr_result = fsr_temp[31:0];
@@ -77,7 +88,7 @@ module alu32_core(
     wire [32:0] add_result;
     wire [32:0] sub_result;
     assign add_result = {1'b0, A} + {1'b0, B};
-    assign sub_ext = {1'b0, A} - {1'b0, B};
+    assign sub_result = {1'b0, A} - {1'b0, B};
     assign Carry = (opcode == OP_ADD) ? add_result[32] : 1'b0;
     //Create bit overflow
     assign Overflow = ((opcode == OP_ADD)
@@ -85,6 +96,10 @@ module alu32_core(
                             (A[31] && B[31] && ~Result[31])));
     integer i;
     always @(*) begin
+        Result = 32'h0000_0000;
+        bit_count = 6'd0;
+        clmul_product = 64'h0000_0000_0000_0000;
+        crc8_value = 8'h00;
         case (opcode)
             //Arithmetic and logic
             OP_ADD: Result = A + B;
@@ -137,10 +152,10 @@ module alu32_core(
             OP_REV16: begin
                 Result = {A[15:0], A[31:16]};
             end
-            ORC1: begin
+            OP_ORC1: begin
                 Result = A;
             end
-            ORC2: begin
+            OP_ORC2: begin
                 for (i = 0; i < 16; i = i + 1) begin
                     Result[i] = |A[(2*i) +: 2];
                 end
@@ -225,6 +240,28 @@ module alu32_core(
 
             OP_UNSHFL16: begin
                 Result = A;
+            end
+            OP_CLMUL_LOW: begin
+                clmul_product = 64'h0000_0000_0000_0000;
+
+                for (i = 0; i < 32; i = i + 1) begin
+                    if (B[i]) begin
+                        clmul_product = clmul_product ^ ({32'b0, A} << i);
+                    end
+                end
+
+                Result = clmul_product[31:0];
+            end
+            OP_CLMUL_HIGH: begin
+                clmul_product = 64'h0000_0000_0000_0000;
+
+                for (i = 0; i < 32; i = i + 1) begin
+                    if (B[i]) begin
+                        clmul_product = clmul_product ^ ({32'b0, A} << i);
+                    end
+                end
+
+                Result = clmul_product[63:32];
             end
             default: Result = 32'h0000_0000;
             endcase
