@@ -108,6 +108,9 @@ endtask
     //Carry-less Multiplication — CLMUL
     localparam OP_CLMUL_LOW = 7'b0111111;
     localparam OP_CLMUL_HIGH = 7'b1000000;
+    //Shift-and-Add Multiplier
+    localparam OP_MUL_LOW = 7'b1000001;
+    localparam OP_MUL_HIGH = 7'b1000010;
     initial begin
         /*
         //Test Arithmetic and logic
@@ -227,7 +230,7 @@ endtask
         A = Result;
         opcode = OP_UNSHFL4;
         #10;
-        $display("UNSHFL4: A=%h, Result=%h, expected=12345678", A, Result); */
+        $display("UNSHFL4: A=%h, Result=%h, expected=12345678", A, Result); 
         // CLMUL test 1: 4-bit example
         A = 32'h0000_000B; // 1011
         B = 32'h0000_0005; // 0101
@@ -251,7 +254,41 @@ endtask
         B = 32'h0000_0002;
         opcode = OP_CLMUL_LOW;
         #10;
-        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result);
+        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result); */
+        // MUL test 1: 11 * 5 = 55 = 0x37
+        A = 32'h0000_000B;
+        B = 32'h0000_0005;
+        opcode = OP_MUL_LOW;
+        #10;
+        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=00000037", A, B, Result);
+
+        // MUL test 2: A * 1 = A
+        A = 32'h1234_5678;
+        B = 32'h0000_0001;
+        opcode = OP_MUL_LOW;
+        #10;
+        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=12345678", A, B, Result);
+
+        // MUL test 3: A * 0 = 0
+        A = 32'hFFFF_FFFF;
+        B = 32'h0000_0000;
+        opcode = OP_MUL_LOW;
+        #10;
+        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result);
+
+        // MUL high test
+        A = 32'h8000_0000;
+        B = 32'h0000_0002;
+        opcode = OP_MUL_HIGH;
+        #10;
+        $display("MUL_HIGH: A=%h, B=%h, Result=%h, expected=00000001", A, B, Result);
+
+        // MUL low of same case
+        A = 32'h8000_0000;
+        B = 32'h0000_0002;
+        opcode = OP_MUL_LOW;
+        #10;
+        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result);
     end
     
 endmodule

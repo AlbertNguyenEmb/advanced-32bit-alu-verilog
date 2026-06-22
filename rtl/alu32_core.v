@@ -12,6 +12,7 @@ module alu32_core(
 );  
     reg [5:0] bit_count;
     reg [7:0] crc8_value;
+    reg [63:0] mul_product;
     //Opcode definitions
     // Basic arithmetic and logic opcodes
     localparam OP_ADD = 7'b0000000;
@@ -70,6 +71,9 @@ module alu32_core(
     //Carry-less Multiplication — CLMUL
     localparam OP_CLMUL_LOW = 7'b0111111;
     localparam OP_CLMUL_HIGH = 7'b1000000;
+    //Shift-and-Add Multiplier
+    localparam OP_MUL_LOW = 7'b1000001;
+    localparam OP_MUL_HIGH = 7'b1000010;
     //Create funnel shift result
     wire [63:0] funnel_concat;
     wire [63:0] fsl_temp;
@@ -100,6 +104,7 @@ module alu32_core(
         bit_count = 6'd0;
         clmul_product = 64'h0000_0000_0000_0000;
         crc8_value = 8'h00;
+        mul_product = 64'h0000_0000_0000_0000;
         case (opcode)
             //Arithmetic and logic
             OP_ADD: Result = A + B;
@@ -263,9 +268,33 @@ module alu32_core(
 
                 Result = clmul_product[63:32];
             end
+            OP_MUL_LOW: begin
+            mul_product = 64'h0000_0000_0000_0000;
+
+            for (i = 0; i < 32; i = i + 1) begin
+                if (B[i]) begin
+                    mul_product = mul_product + ({32'b0, A} << i);
+                end
+            end
+
+            Result = mul_product[31:0];
+            end
+
+            OP_MUL_HIGH: begin
+                mul_product = 64'h0000_0000_0000_0000;
+
+                for (i = 0; i < 32; i = i + 1) begin
+                    if (B[i]) begin
+                        mul_product = mul_product + ({32'b0, A} << i);
+                    end
+                end
+
+                Result = mul_product[63:32];
+            end
+
             default: Result = 32'h0000_0000;
-            endcase
-        end
+        endcase
+    end
 
     assign Zero = (Result == 32'h0000_0000);
     assign Negative = (Result[31]);
