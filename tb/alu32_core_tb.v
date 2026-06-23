@@ -1,294 +1,694 @@
 `timescale 1ns/1ps
-module alu32_core_tb();
 
-reg [31:0] A;
-reg [31:0] B;
-reg [6:0] opcode;
-reg [4:0] shamt;
-wire [31:0] Result;
-wire Zero;
-wire Negative;
-wire carry_out;
-wire overflow_out;
-alu32_core dut(
-    .A(A),
-    .B(B),
-    .opcode(opcode),
-    .Result(Result),
-    .Zero(Zero),
-    .shamt(shamt),
-    .Negative(Negative),
-    .Carry(carry_out),
-    .Overflow(overflow_out)
-);
+`include "alu32_defines.vh"
 
-task run_test;
-    input [6:0] op;
-    input [31:0] a, b;
-begin
-    opcode = op;
-    A = a;
-    B = b;
-    #10;
-    $display("Time = %0t, Opcode = %0b, A = %0d, B = %0d, Result = %0d", 
-            $time, op, a, b, Result);
-end
-endtask
+module alu32_core_tb;
 
-task run_test_shift;
-    input [6:0] op;
-    input [31:0] a;
-    input [31:0] b;
-    input [4:0] shift_amt;
-begin
-    opcode = op;
-    A = a;
-    B = b;
-    shamt = shift_amt;
-    #10;
-    $display("Time = %0t, Opcode = %0b, A = %0h, shamt = %d, Result = %0d", 
-            $time, op, a, shamt, Result);
-end
-endtask
-    //Opcode definitions
-    // Basic arithmetic and logic opcodes
-    localparam OP_ADD = 7'b0000000;
-    localparam OP_SUB = 7'b0000001;
-    localparam OP_AND = 7'b0000010;
-    localparam OP_OR  = 7'b0000011;
-    localparam OP_XOR = 7'b0000100;
-    localparam OP_NOT = 7'b0000101;
-    
-    // Comparision opcodes
-    localparam EQ          = 7'b0000110;
-    localparam LT_UNSIGNED = 7'b0000111;
-    localparam GT_UNSIGNED = 7'b0001000;
-    localparam LT_SIGNED   = 7'b0001001;
-    localparam GT_SIGNED   = 7'b0001010;
-    
-    // Shift opcodes
-    localparam OP_SLL = 7'b0001011;
-    localparam OP_SRL = 7'b0001100;
-    localparam OP_SRA = 7'b0001101;
-    localparam OP_FSL = 7'b0001110;
-    localparam OP_FSR = 7'b0001111;
-    
-    // Extension opcodes
-    localparam OP_ZEXT16 = 7'b0010000;
-    localparam OP_SEXT16 = 7'b0010001;
-    
-    // Reverse opcodes
-    localparam OP_REV1  = 7'b0010010;
-    localparam OP_REV2  = 7'b0010011;
-    localparam OP_REV4  = 7'b0010100;
-    localparam OP_REV8  = 7'b0010101;
-    localparam OP_REV16 = 7'b0010110;
-    
-    // OR-Combine opcode
-    localparam OP_ORC1  = 7'b0101111; 
-    localparam OP_ORC2  = 7'b0110000;
-    localparam OP_ORC4  = 7'b0110001;
-    localparam OP_ORC8  = 7'b0110010;
-    localparam OP_ORC16 = 7'b0110011;
-    
-    // Bitcount opcode
-    localparam OP_BITCOUNT = 7'b0110100;
-    
-    // Shuffle / Unshuffle opcodes
-    localparam OP_SHFL1    = 7'b0110101; 
-    localparam OP_UNSHFL1  = 7'b0110110; 
-    localparam OP_SHFL2    = 7'b0110111;
-    localparam OP_UNSHFL2  = 7'b0111000; 
-    localparam OP_SHFL4    = 7'b0111001; 
-    localparam OP_UNSHFL4  = 7'b0111010; 
-    localparam OP_SHFL8    = 7'b0111011; 
-    localparam OP_UNSHFL8  = 7'b0111100; 
-    localparam OP_SHFL16   = 7'b0111101; 
-    localparam OP_UNSHFL16 = 7'b0111110;
-    //Carry-less Multiplication — CLMUL
-    localparam OP_CLMUL_LOW = 7'b0111111;
-    localparam OP_CLMUL_HIGH = 7'b1000000;
-    //Shift-and-Add Multiplier
-    localparam OP_MUL_LOW = 7'b1000001;
-    localparam OP_MUL_HIGH = 7'b1000010;
+    reg  [31:0] A;
+    reg  [31:0] B;
+    reg  [6:0]  opcode;
+    reg  [4:0]  shamt;
+
+    wire [31:0] Result;
+    wire        Zero;
+    wire        Negative;
+    wire        Carry;
+    wire        Overflow;
+
+    integer pass_count;
+    integer fail_count;
+
+    reg [31:0] expected_result;
+    reg        expected_zero;
+    reg        expected_negative;
+    reg        expected_carry;
+    reg        expected_overflow;
+
+    // =====================================================
+    // DUT
+    // =====================================================
+    alu32_core dut (
+        .A(A),
+        .B(B),
+        .opcode(opcode),
+        .shamt(shamt),
+        .Result(Result),
+        .Zero(Zero),
+        .Negative(Negative),
+        .Carry(Carry),
+        .Overflow(Overflow)
+    );
+
+    // =====================================================
+    // Golden helper functions
+    // =====================================================
+
+    function [31:0] reverse_by_1;
+        input [31:0] x;
+        integer i;
+        begin
+            reverse_by_1 = 32'd0;
+            for (i = 0; i < 32; i = i + 1) begin
+                reverse_by_1[i] = x[31 - i];
+            end
+        end
+    endfunction
+
+    function [31:0] reverse_by_2;
+        input [31:0] x;
+        integer i;
+        begin
+            reverse_by_2 = 32'd0;
+            for (i = 0; i < 16; i = i + 1) begin
+                reverse_by_2[(2*i) +: 2] = x[(2*(15-i)) +: 2];
+            end
+        end
+    endfunction
+
+    function [31:0] reverse_by_4;
+        input [31:0] x;
+        begin
+            reverse_by_4[3:0]    = x[31:28];
+            reverse_by_4[7:4]    = x[27:24];
+            reverse_by_4[11:8]   = x[23:20];
+            reverse_by_4[15:12]  = x[19:16];
+            reverse_by_4[19:16]  = x[15:12];
+            reverse_by_4[23:20]  = x[11:8];
+            reverse_by_4[27:24]  = x[7:4];
+            reverse_by_4[31:28]  = x[3:0];
+        end
+    endfunction
+
+    function [31:0] or_combine_2;
+        input [31:0] x;
+        integer i;
+        begin
+            or_combine_2 = 32'd0;
+            for (i = 0; i < 16; i = i + 1) begin
+                or_combine_2[i] = |x[(2*i) +: 2];
+            end
+        end
+    endfunction
+
+    function [31:0] or_combine_4;
+        input [31:0] x;
+        integer i;
+        begin
+            or_combine_4 = 32'd0;
+            for (i = 0; i < 8; i = i + 1) begin
+                or_combine_4[i] = |x[(4*i) +: 4];
+            end
+        end
+    endfunction
+
+    function [31:0] or_combine_8;
+        input [31:0] x;
+        integer i;
+        begin
+            or_combine_8 = 32'd0;
+            for (i = 0; i < 4; i = i + 1) begin
+                or_combine_8[i] = |x[(8*i) +: 8];
+            end
+        end
+    endfunction
+
+    function [31:0] or_combine_16;
+        input [31:0] x;
+        integer i;
+        begin
+            or_combine_16 = 32'd0;
+            for (i = 0; i < 2; i = i + 1) begin
+                or_combine_16[i] = |x[(16*i) +: 16];
+            end
+        end
+    endfunction
+
+    function [31:0] bitcount32;
+        input [31:0] x;
+        integer i;
+        reg [5:0] count;
+        begin
+            count = 6'd0;
+            for (i = 0; i < 32; i = i + 1) begin
+                count = count + x[i];
+            end
+            bitcount32 = {26'd0, count};
+        end
+    endfunction
+
+    function [31:0] shfl1;
+        input [31:0] x;
+        integer i;
+        begin
+            shfl1 = 32'd0;
+            for (i = 0; i < 16; i = i + 1) begin
+                shfl1[2*i]     = x[i];
+                shfl1[2*i + 1] = x[i + 16];
+            end
+        end
+    endfunction
+
+    function [31:0] unshfl1;
+        input [31:0] x;
+        integer i;
+        begin
+            unshfl1 = 32'd0;
+            for (i = 0; i < 16; i = i + 1) begin
+                unshfl1[i]      = x[2*i];
+                unshfl1[i + 16] = x[2*i + 1];
+            end
+        end
+    endfunction
+
+    function [31:0] shfl2;
+        input [31:0] x;
+        integer i;
+        begin
+            shfl2 = 32'd0;
+            for (i = 0; i < 8; i = i + 1) begin
+                shfl2[(4*i) +: 2]     = x[(2*i) +: 2];
+                shfl2[(4*i + 2) +: 2] = x[(2*(i + 8)) +: 2];
+            end
+        end
+    endfunction
+
+    function [31:0] unshfl2;
+        input [31:0] x;
+        integer i;
+        begin
+            unshfl2 = 32'd0;
+            for (i = 0; i < 8; i = i + 1) begin
+                unshfl2[(2*i) +: 2]       = x[(4*i) +: 2];
+                unshfl2[(2*(i + 8)) +: 2] = x[(4*i + 2) +: 2];
+            end
+        end
+    endfunction
+
+    function [31:0] shfl4;
+        input [31:0] x;
+        integer i;
+        begin
+            shfl4 = 32'd0;
+            for (i = 0; i < 4; i = i + 1) begin
+                shfl4[(8*i) +: 4]     = x[(4*i) +: 4];
+                shfl4[(8*i + 4) +: 4] = x[(4*(i + 4)) +: 4];
+            end
+        end
+    endfunction
+
+    function [31:0] unshfl4;
+        input [31:0] x;
+        integer i;
+        begin
+            unshfl4 = 32'd0;
+            for (i = 0; i < 4; i = i + 1) begin
+                unshfl4[(4*i) +: 4]       = x[(8*i) +: 4];
+                unshfl4[(4*(i + 4)) +: 4] = x[(8*i + 4) +: 4];
+            end
+        end
+    endfunction
+
+    function [31:0] shfl8;
+        input [31:0] x;
+        integer i;
+        begin
+            shfl8 = 32'd0;
+            for (i = 0; i < 2; i = i + 1) begin
+                shfl8[(16*i) +: 8]     = x[(8*i) +: 8];
+                shfl8[(16*i + 8) +: 8] = x[(8*(i + 2)) +: 8];
+            end
+        end
+    endfunction
+
+    function [31:0] unshfl8;
+        input [31:0] x;
+        integer i;
+        begin
+            unshfl8 = 32'd0;
+            for (i = 0; i < 2; i = i + 1) begin
+                unshfl8[(8*i) +: 8]       = x[(16*i) +: 8];
+                unshfl8[(8*(i + 2)) +: 8] = x[(16*i + 8) +: 8];
+            end
+        end
+    endfunction
+
+    function [63:0] clmul32;
+        input [31:0] x;
+        input [31:0] y;
+        integer i;
+        begin
+            clmul32 = 64'd0;
+            for (i = 0; i < 32; i = i + 1) begin
+                if (y[i]) begin
+                    clmul32 = clmul32 ^ ({32'd0, x} << i);
+                end
+            end
+        end
+    endfunction
+
+    function [63:0] mul32_unsigned;
+        input [31:0] x;
+        input [31:0] y;
+        integer i;
+        begin
+            mul32_unsigned = 64'd0;
+            for (i = 0; i < 32; i = i + 1) begin
+                if (y[i]) begin
+                    mul32_unsigned = mul32_unsigned + ({32'd0, x} << i);
+                end
+            end
+        end
+    endfunction
+
+    function signed [63:0] mul32_signed;
+        input signed [31:0] x;
+        input signed [31:0] y;
+        begin
+            mul32_signed = x * y;
+        end
+    endfunction
+
+    function [31:0] crc8_ref;
+        input [31:0] x;
+        integer i;
+        reg [7:0] crc;
+        begin
+            crc = x[7:0];
+
+            for (i = 0; i < 8; i = i + 1) begin
+                if (crc[7]) begin
+                    crc = (crc << 1) ^ 8'h07;
+                end else begin
+                    crc = crc << 1;
+                end
+            end
+
+            crc8_ref = {24'd0, crc};
+        end
+    endfunction
+
+    function [31:0] crc16_ref;
+        input [31:0] x;
+        integer i;
+        reg [15:0] crc;
+        begin
+            crc = x[15:0];
+
+            for (i = 0; i < 16; i = i + 1) begin
+                if (crc[15]) begin
+                    crc = (crc << 1) ^ 16'h1021;
+                end else begin
+                    crc = crc << 1;
+                end
+            end
+
+            crc16_ref = {16'd0, crc};
+        end
+    endfunction
+
+    function [31:0] crc32_ref;
+        input [31:0] x;
+        integer i;
+        reg [31:0] crc;
+        begin
+            crc = x;
+
+            for (i = 0; i < 32; i = i + 1) begin
+                if (crc[31]) begin
+                    crc = (crc << 1) ^ 32'h04C11DB7;
+                end else begin
+                    crc = crc << 1;
+                end
+            end
+
+            crc32_ref = crc;
+        end
+    endfunction
+
+    function [31:0] expected_model;
+        input [31:0] x;
+        input [31:0] y;
+        input [6:0]  op;
+        input [4:0]  s;
+        reg [63:0] temp64;
+        reg signed [63:0] stemp64;
+        reg [63:0] funnel_temp;
+        begin
+            expected_model = 32'h0000_0000;
+            temp64 = 64'd0;
+            stemp64 = 64'sd0;
+            funnel_temp = 64'd0;
+
+            case (op)
+                `OP_ADD: expected_model = x + y;
+                `OP_SUB: expected_model = x - y;
+                `OP_AND: expected_model = x & y;
+                `OP_OR : expected_model = x | y;
+                `OP_XOR: expected_model = x ^ y;
+                `OP_NOT: expected_model = ~x;
+
+                `OP_EQ:          expected_model = (x == y) ? 32'd1 : 32'd0;
+                `OP_LT_UNSIGNED: expected_model = (x < y) ? 32'd1 : 32'd0;
+                `OP_GT_UNSIGNED: expected_model = (x > y) ? 32'd1 : 32'd0;
+                `OP_LT_SIGNED:   expected_model = ($signed(x) < $signed(y)) ? 32'd1 : 32'd0;
+                `OP_GT_SIGNED:   expected_model = ($signed(x) > $signed(y)) ? 32'd1 : 32'd0;
+
+                `OP_SLL: expected_model = x << s;
+                `OP_SRL: expected_model = x >> s;
+                `OP_SRA: expected_model = $signed(x) >>> s;
+
+                `OP_FSL: begin
+                    funnel_temp = {x, y} << s;
+                    expected_model = funnel_temp[63:32];
+                end
+
+                `OP_FSR: begin
+                    funnel_temp = {x, y} >> s;
+                    expected_model = funnel_temp[31:0];
+                end
+
+                `OP_ZEXT16: expected_model = {16'b0, x[15:0]};
+                `OP_SEXT16: expected_model = {{16{x[15]}}, x[15:0]};
+
+                `OP_REV1:  expected_model = reverse_by_1(x);
+                `OP_REV2:  expected_model = reverse_by_2(x);
+                `OP_REV4:  expected_model = reverse_by_4(x);
+                `OP_REV8:  expected_model = {x[7:0], x[15:8], x[23:16], x[31:24]};
+                `OP_REV16: expected_model = {x[15:0], x[31:16]};
+
+                `OP_ORC1:  expected_model = x;
+                `OP_ORC2:  expected_model = or_combine_2(x);
+                `OP_ORC4:  expected_model = or_combine_4(x);
+                `OP_ORC8:  expected_model = or_combine_8(x);
+                `OP_ORC16: expected_model = or_combine_16(x);
+
+                `OP_BITCOUNT: expected_model = bitcount32(x);
+
+                `OP_SHFL1:    expected_model = shfl1(x);
+                `OP_UNSHFL1:  expected_model = unshfl1(x);
+                `OP_SHFL2:    expected_model = shfl2(x);
+                `OP_UNSHFL2:  expected_model = unshfl2(x);
+                `OP_SHFL4:    expected_model = shfl4(x);
+                `OP_UNSHFL4:  expected_model = unshfl4(x);
+                `OP_SHFL8:    expected_model = shfl8(x);
+                `OP_UNSHFL8:  expected_model = unshfl8(x);
+                `OP_SHFL16:   expected_model = x;
+                `OP_UNSHFL16: expected_model = x;
+
+                `OP_CLMUL_LOW: begin
+                    temp64 = clmul32(x, y);
+                    expected_model = temp64[31:0];
+                end
+
+                `OP_CLMUL_HIGH: begin
+                    temp64 = clmul32(x, y);
+                    expected_model = temp64[63:32];
+                end
+
+                `OP_MUL_LOW: begin
+                    temp64 = mul32_unsigned(x, y);
+                    expected_model = temp64[31:0];
+                end
+
+                `OP_MUL_HIGH: begin
+                    temp64 = mul32_unsigned(x, y);
+                    expected_model = temp64[63:32];
+                end
+
+                `OP_BOOTH_MUL_LOW: begin
+                    stemp64 = mul32_signed($signed(x), $signed(y));
+                    expected_model = stemp64[31:0];
+                end
+
+                `OP_BOOTH_MUL_HIGH: begin
+                    stemp64 = mul32_signed($signed(x), $signed(y));
+                    expected_model = stemp64[63:32];
+                end
+
+                `OP_CRC8:  expected_model = crc8_ref(x);
+                `OP_CRC16: expected_model = crc16_ref(x);
+                `OP_CRC32: expected_model = crc32_ref(x);
+
+                default: expected_model = 32'h0000_0000;
+            endcase
+        end
+    endfunction
+
+    function expected_carry_model;
+        input [31:0] x;
+        input [31:0] y;
+        input [6:0]  op;
+        reg [32:0] add_ext;
+        reg [32:0] sub_ext;
+        begin
+            add_ext = {1'b0, x} + {1'b0, y};
+            sub_ext = {1'b0, x} - {1'b0, y};
+
+            case (op)
+                `OP_ADD: expected_carry_model = add_ext[32];
+                `OP_SUB: expected_carry_model = sub_ext[32];
+                default: expected_carry_model = 1'b0;
+            endcase
+        end
+    endfunction
+
+    function expected_overflow_model;
+        input [31:0] x;
+        input [31:0] y;
+        input [31:0] r;
+        input [6:0]  op;
+        begin
+            case (op)
+                `OP_ADD:
+                    expected_overflow_model =
+                        ((~x[31] & ~y[31] & r[31]) |
+                         ( x[31] &  y[31] & ~r[31]));
+
+                `OP_SUB:
+                    expected_overflow_model =
+                        ((~x[31] &  y[31] & r[31]) |
+                         ( x[31] & ~y[31] & ~r[31]));
+
+                default:
+                    expected_overflow_model = 1'b0;
+            endcase
+        end
+    endfunction
+
+    // =====================================================
+    // Main check task
+    // =====================================================
+    task check_op;
+        input [8*32-1:0] test_name;
+        input [31:0]     test_A;
+        input [31:0]     test_B;
+        input [6:0]      test_opcode;
+        input [4:0]      test_shamt;
+        begin
+            A      = test_A;
+            B      = test_B;
+            opcode = test_opcode;
+            shamt  = test_shamt;
+
+            #10;
+
+            expected_result   = expected_model(test_A, test_B, test_opcode, test_shamt);
+            expected_zero     = (expected_result == 32'h0000_0000);
+            expected_negative = expected_result[31];
+            expected_carry    = expected_carry_model(test_A, test_B, test_opcode);
+            expected_overflow = expected_overflow_model(test_A, test_B, expected_result, test_opcode);
+
+            if ((Result   === expected_result)   &&
+                (Zero     === expected_zero)     &&
+                (Negative === expected_negative) &&
+                (Carry    === expected_carry)    &&
+                (Overflow === expected_overflow)) begin
+
+                pass_count = pass_count + 1;
+                $display("[PASS] %-32s | A=%h B=%h shamt=%0d opcode=%b Result=%h",
+                         test_name, A, B, shamt, opcode, Result);
+            end else begin
+                fail_count = fail_count + 1;
+                $display("[FAIL] %-32s | A=%h B=%h shamt=%0d opcode=%b",
+                         test_name, A, B, shamt, opcode);
+
+                $display("       Result   expected=%h got=%h", expected_result, Result);
+                $display("       Zero     expected=%b got=%b", expected_zero, Zero);
+                $display("       Negative expected=%b got=%b", expected_negative, Negative);
+                $display("       Carry    expected=%b got=%b", expected_carry, Carry);
+                $display("       Overflow expected=%b got=%b", expected_overflow, Overflow);
+            end
+        end
+    endtask
+
+    // =====================================================
+    // Test sequence
+    // =====================================================
     initial begin
-        /*
-        //Test Arithmetic and logic
-        run_test(6'b000000, 10, 20); // ADD
-        run_test(6'b000001, 50, 15); // SUB
-        run_test(6'b000010, 32'h0000_0000,  32'h0000_0001);  // AND
-        run_test(6'b000011, 32'h1111_1111,  32'h0000_0000);  // OR
-        run_test(6'b000100, 32'h1100_1100,  32'h0011_0011);  // XOR
-        run_test(6'b000101, 32'h1100_1100, 32'h0000_0000);  // NOT
-        //Test comparision
-        run_test(6'b000110, 32'h1111_1111, 32'h1111_1111); // 1
-        run_test(6'b000111, 32'h1111_1111, 32'h1111_1110); //0
-        run_test(6'b001000, 32'h1111_1111, 32'h1111_1110); // 1
-        run_test(6'b001001, 32'hFFFF_FFFF, 32'h1111_1111); //1
-        run_test(6'b001010, 32'hFFFF_FFFF, 32'h1111_1111); //0 
-        //Test shift
-        run_test_shift(6'b001011, 32'h1111_1111, 32'h1111_1111, 5'b01000); //SLL 2bit -> 1111_1100
-        run_test_shift(6'b001100, 32'h1111_1111, 32'h1111_1111, 5'b01000); //SRL 2bit -> 0011_1111
-        run_test_shift(6'b001101, 32'h1100_0000, 32'h1111_1111, 5'b01000); //SRA 2bit -> 1110_0000
-        run_test_shift(6'b001110, 32'h1234_5678, 32'hABCD_EF00, 5'b01000); //FSL Result = 345678AB
-        run_test_shift(6'b001111, 32'h1234_5678, 32'hABCD_EF00, 5'b01000); //FSR Result = 78ABCDEF
-        //ZEXT16 test
-        A = 32'hFFFF_8103;
-        B = 32'h0000_1111;
-        shamt = 5'd0;
-        opcode = OP_ZEXT16;
-        #10;
-        $display("ZEXT16: A = %h, Result = %h", A , Result);
-        // SEXT16 test - negative 16-bit value
-        A = 32'h0000_8123;
-        B = 32'h0;
-        shamt = 5'd0;
-        opcode = OP_SEXT16;
-        #10;
-        $display("SEXT16: A=%h, Result=%h, expected=FFFF8123", A, Result);
+        pass_count = 0;
+        fail_count = 0;
 
-        // SEXT16 test - positive 16-bit value
-        A = 32'h0000_7123;
-        opcode = OP_SEXT16;
-        #10;
-        $display("SEXT16: A=%h, Result=%h, expected=00007123", A, Result);
-        // REV4 test
-        A = 32'h1234_5678;
-        opcode = OP_REV4;
-        #10;
-        $display("REV4: A=%h, Result=%h, expected=87654321", A, Result);
-
-        // REV8 test
-        A = 32'h1234_5678;
-        opcode = OP_REV8;
-        #10;
-        $display("REV8: A=%h, Result=%h, expected=78563412", A, Result);
-
-        // REV16 test
-        A = 32'h1234_5678;
-        opcode = OP_REV16;
-        #10;
-        $display("REV16: A=%h, Result=%h, expected=56781234", A, Result);
-        
-        // ORC8 test
-        A = 32'h1200_00F0;
+        A = 32'd0;
         B = 32'd0;
+        opcode = `OP_ADD;
         shamt = 5'd0;
-        opcode = OP_ORC8;
-        #10;
-        $display("ORC8: A=%h, Result=%h, expected=00000009", A, Result);
-        // ORC16 test
-        A = 32'h0000_1234;
-        opcode = OP_ORC16;
-        #10;
-        $display("ORC16: A=%h, Result=%h, expected=00000001", A, Result);
 
-        A = 32'h1234_0000;
-        opcode = OP_ORC16;
-        #10;
-        $display("ORC16: A=%h, Result=%h, expected=00000002", A, Result);
+        $display("====================================================");
+        $display(" ALU32 CORE FULL TESTBENCH");
+        $display("====================================================");
 
-        A = 32'h1234_5678;
-        opcode = OP_ORC16;
-        #10;
-        $display("ORC16: A=%h, Result=%h, expected=00000003", A, Result);
-        // BITCOUNT tests
-        A = 32'h0000_0000;
-        opcode = OP_BITCOUNT;
-        #10;
-        $display("BITCOUNT: A=%h, Result=%0d, expected=0", A, Result);
+        // =================================================
+        // Arithmetic
+        // =================================================
+        check_op("ADD basic",              32'd10,        32'd3,         `OP_ADD, 5'd0);
+        check_op("ADD carry",              32'hFFFF_FFFF, 32'h0000_0001, `OP_ADD, 5'd0);
+        check_op("ADD overflow positive",  32'h7FFF_FFFF, 32'h0000_0001, `OP_ADD, 5'd0);
+        check_op("ADD overflow negative",  32'h8000_0000, 32'hFFFF_FFFF, `OP_ADD, 5'd0);
 
-        A = 32'h0000_000F;
-        opcode = OP_BITCOUNT;
-        #10;
-        $display("BITCOUNT: A=%h, Result=%0d, expected=4", A, Result);
+        check_op("SUB basic",              32'd10,        32'd3,         `OP_SUB, 5'd0);
+        check_op("SUB zero",               32'd5,         32'd5,         `OP_SUB, 5'd0);
+        check_op("SUB negative",           32'd3,         32'd10,        `OP_SUB, 5'd0);
+        check_op("SUB overflow",           32'h8000_0000, 32'h0000_0001, `OP_SUB, 5'd0);
 
-        A = 32'hFFFF_0000;
-        opcode = OP_BITCOUNT;
-        #10;
-        $display("BITCOUNT: A=%h, Result=%0d, expected=16", A, Result);
+        // =================================================
+        // Logic
+        // =================================================
+        check_op("AND",                    32'h0000_00F0, 32'h0000_000F, `OP_AND, 5'd0);
+        check_op("OR",                     32'h0000_00F0, 32'h0000_000F, `OP_OR,  5'd0);
+        check_op("XOR",                    32'h0000_00F0, 32'h0000_000F, `OP_XOR, 5'd0);
+        check_op("NOT",                    32'hFFFF_0000, 32'h0000_0000, `OP_NOT, 5'd0);
 
-        A = 32'hFFFF_FFFF;
-        opcode = OP_BITCOUNT;
-        #10;
-        $display("BITCOUNT: A=%h, Result=%0d, expected=32", A, Result);
+        // =================================================
+        // Compare
+        // =================================================
+        check_op("EQ true",                32'd10,        32'd10,        `OP_EQ, 5'd0);
+        check_op("EQ false",               32'd10,        32'd3,         `OP_EQ, 5'd0);
+        check_op("LT unsigned true",       32'd5,         32'd10,        `OP_LT_UNSIGNED, 5'd0);
+        check_op("GT unsigned true",       32'd10,        32'd5,         `OP_GT_UNSIGNED, 5'd0);
+        check_op("LT signed true",         -32'sd5,       32'sd10,       `OP_LT_SIGNED, 5'd0);
+        check_op("GT signed true",         32'sd10,       -32'sd5,       `OP_GT_SIGNED, 5'd0);
+        check_op("Signed vs unsigned diff",32'hFFFF_FFFF, 32'h0000_0001, `OP_LT_SIGNED, 5'd0);
 
-        A = 32'h8000_0001;
-        opcode = OP_BITCOUNT;
-        #10;
-        $display("BITCOUNT: A=%h, Result=%0d, expected=2", A, Result);
+        // =================================================
+        // Shift
+        // =================================================
+        check_op("SLL 1 by 3",             32'h0000_0001, 32'd0,         `OP_SLL, 5'd3);
+        check_op("SLL by 31",              32'h0000_0001, 32'd0,         `OP_SLL, 5'd31);
+        check_op("SRL high bit",           32'h8000_0000, 32'd0,         `OP_SRL, 5'd1);
+        check_op("SRA high bit",           32'h8000_0000, 32'd0,         `OP_SRA, 5'd1);
+        check_op("SRA negative -8",        32'hFFFF_FFF8, 32'd0,         `OP_SRA, 5'd1);
 
-        // SHFL4 test
-        A = 32'h1234_5678;
-        B = 32'd0;
-        shamt = 5'd0;
-        opcode = OP_SHFL4;
-        #10;
-        $display("SHFL4: A=%h, Result=%h, expected=15263748", A, Result);
+        check_op("FSL",                    32'h1234_5678, 32'hABCD_EF00, `OP_FSL, 5'd8);
+        check_op("FSR",                    32'h1234_5678, 32'hABCD_EF00, `OP_FSR, 5'd8);
 
-        // UNSHFL4 test
-        A = Result;
-        opcode = OP_UNSHFL4;
-        #10;
-        $display("UNSHFL4: A=%h, Result=%h, expected=12345678", A, Result); 
-        // CLMUL test 1: 4-bit example
-        A = 32'h0000_000B; // 1011
-        B = 32'h0000_0005; // 0101
-        opcode = OP_CLMUL_LOW;
-        #10;
-        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=00000027", A, B, Result);
-        // CLMUL test 2: A * 1 = A
-        A = 32'h1234_5678;
-        B = 32'h0000_0001;
-        opcode = OP_CLMUL_LOW;
-        #10;
-        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=12345678", A, B, Result);
-        // CLMUL high test
-        A = 32'h8000_0000;
-        B = 32'h0000_0002;
-        opcode = OP_CLMUL_HIGH;
-        #10;
-        $display("CLMUL_HIGH: A=%h, B=%h, Result=%h, expected=00000001", A, B, Result);
-        // CLMUL low test
-        A = 32'h8000_0000;
-        B = 32'h0000_0002;
-        opcode = OP_CLMUL_LOW;
-        #10;
-        $display("CLMUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result); */
-        // MUL test 1: 11 * 5 = 55 = 0x37
-        A = 32'h0000_000B;
-        B = 32'h0000_0005;
-        opcode = OP_MUL_LOW;
-        #10;
-        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=00000037", A, B, Result);
+        // =================================================
+        // Extension
+        // =================================================
+        check_op("ZEXT16",                 32'hFFFF_8123, 32'd0,         `OP_ZEXT16, 5'd0);
+        check_op("SEXT16 negative",        32'h0000_8123, 32'd0,         `OP_SEXT16, 5'd0);
+        check_op("SEXT16 positive",        32'h0000_7123, 32'd0,         `OP_SEXT16, 5'd0);
 
-        // MUL test 2: A * 1 = A
-        A = 32'h1234_5678;
-        B = 32'h0000_0001;
-        opcode = OP_MUL_LOW;
-        #10;
-        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=12345678", A, B, Result);
+        // =================================================
+        // Reverse
+        // =================================================
+        check_op("REV1",                   32'h0000_000F, 32'd0,         `OP_REV1, 5'd0);
+        check_op("REV2",                   32'h0000_0003, 32'd0,         `OP_REV2, 5'd0);
+        check_op("REV4",                   32'h1234_5678, 32'd0,         `OP_REV4, 5'd0);
+        check_op("REV8",                   32'h1234_5678, 32'd0,         `OP_REV8, 5'd0);
+        check_op("REV16",                  32'h1234_5678, 32'd0,         `OP_REV16, 5'd0);
 
-        // MUL test 3: A * 0 = 0
-        A = 32'hFFFF_FFFF;
-        B = 32'h0000_0000;
-        opcode = OP_MUL_LOW;
-        #10;
-        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result);
+        // =================================================
+        // OR-combine
+        // =================================================
+        check_op("ORC1",                   32'h1234_5678, 32'd0,         `OP_ORC1, 5'd0);
+        check_op("ORC2",                   32'h0000_0003, 32'd0,         `OP_ORC2, 5'd0);
+        check_op("ORC4",                   32'h1000_0001, 32'd0,         `OP_ORC4, 5'd0);
+        check_op("ORC8",                   32'h1200_00F0, 32'd0,         `OP_ORC8, 5'd0);
+        check_op("ORC16 low",              32'h0000_1234, 32'd0,         `OP_ORC16, 5'd0);
+        check_op("ORC16 high",             32'h1234_0000, 32'd0,         `OP_ORC16, 5'd0);
+        check_op("ORC16 both",             32'h1234_5678, 32'd0,         `OP_ORC16, 5'd0);
 
-        // MUL high test
-        A = 32'h8000_0000;
-        B = 32'h0000_0002;
-        opcode = OP_MUL_HIGH;
-        #10;
-        $display("MUL_HIGH: A=%h, B=%h, Result=%h, expected=00000001", A, B, Result);
+        // =================================================
+        // Bitcount
+        // =================================================
+        check_op("BITCOUNT zero",           32'h0000_0000, 32'd0,         `OP_BITCOUNT, 5'd0);
+        check_op("BITCOUNT four",           32'h0000_000F, 32'd0,         `OP_BITCOUNT, 5'd0);
+        check_op("BITCOUNT sixteen",        32'hFFFF_0000, 32'd0,         `OP_BITCOUNT, 5'd0);
+        check_op("BITCOUNT thirty two",     32'hFFFF_FFFF, 32'd0,         `OP_BITCOUNT, 5'd0);
+        check_op("BITCOUNT two",            32'h8000_0001, 32'd0,         `OP_BITCOUNT, 5'd0);
 
-        // MUL low of same case
-        A = 32'h8000_0000;
-        B = 32'h0000_0002;
-        opcode = OP_MUL_LOW;
-        #10;
-        $display("MUL_LOW: A=%h, B=%h, Result=%h, expected=00000000", A, B, Result);
+        // =================================================
+        // Shuffle / Unshuffle
+        // =================================================
+        check_op("SHFL1",                   32'hA5C3_3C5A, 32'd0,         `OP_SHFL1, 5'd0);
+        check_op("UNSHFL1",                 shfl1(32'hA5C3_3C5A), 32'd0,  `OP_UNSHFL1, 5'd0);
+
+        check_op("SHFL2",                   32'h1234_5678, 32'd0,         `OP_SHFL2, 5'd0);
+        check_op("UNSHFL2",                 shfl2(32'h1234_5678), 32'd0,  `OP_UNSHFL2, 5'd0);
+
+        check_op("SHFL4",                   32'h1234_5678, 32'd0,         `OP_SHFL4, 5'd0);
+        check_op("UNSHFL4",                 32'h1526_3748, 32'd0,         `OP_UNSHFL4, 5'd0);
+
+        check_op("SHFL8",                   32'h1234_5678, 32'd0,         `OP_SHFL8, 5'd0);
+        check_op("UNSHFL8",                 32'h1256_3478, 32'd0,         `OP_UNSHFL8, 5'd0);
+
+        check_op("SHFL16",                  32'h1234_5678, 32'd0,         `OP_SHFL16, 5'd0);
+        check_op("UNSHFL16",                32'h1234_5678, 32'd0,         `OP_UNSHFL16, 5'd0);
+
+        // =================================================
+        // Carry-less multiplication
+        // =================================================
+        check_op("CLMUL low small",          32'h0000_000B, 32'h0000_0005, `OP_CLMUL_LOW, 5'd0);
+        check_op("CLMUL low by one",        32'h1234_5678, 32'h0000_0001, `OP_CLMUL_LOW, 5'd0);
+        check_op("CLMUL low by zero",       32'hFFFF_FFFF, 32'h0000_0000, `OP_CLMUL_LOW, 5'd0);
+        check_op("CLMUL high",              32'h8000_0000, 32'h0000_0002, `OP_CLMUL_HIGH, 5'd0);
+        check_op("CLMUL low high-case",     32'h8000_0000, 32'h0000_0002, `OP_CLMUL_LOW, 5'd0);
+
+        // =================================================
+        // Unsigned multiplier
+        // =================================================
+        check_op("MUL low small",            32'h0000_000B, 32'h0000_0005, `OP_MUL_LOW, 5'd0);
+        check_op("MUL low by one",          32'h1234_5678, 32'h0000_0001, `OP_MUL_LOW, 5'd0);
+        check_op("MUL low by zero",         32'hFFFF_FFFF, 32'h0000_0000, `OP_MUL_LOW, 5'd0);
+        check_op("MUL high",                32'h8000_0000, 32'h0000_0002, `OP_MUL_HIGH, 5'd0);
+        check_op("MUL low high-case",       32'h8000_0000, 32'h0000_0002, `OP_MUL_LOW, 5'd0);
+
+        // =================================================
+        // Signed multiplication / Booth opcode in ALU core
+        // =================================================
+        check_op("BOOTH low -5*3",           -32'sd5,       32'sd3,        `OP_BOOTH_MUL_LOW, 5'd0);
+        check_op("BOOTH high -5*3",          -32'sd5,       32'sd3,        `OP_BOOTH_MUL_HIGH, 5'd0);
+        check_op("BOOTH low 5*-3",           32'sd5,        -32'sd3,       `OP_BOOTH_MUL_LOW, 5'd0);
+        check_op("BOOTH low -5*-3",          -32'sd5,       -32'sd3,       `OP_BOOTH_MUL_LOW, 5'd0);
+
+        // =================================================
+        // CRC
+        // =================================================
+        check_op("CRC8 zero",                32'h0000_0000, 32'd0,         `OP_CRC8, 5'd0);
+        check_op("CRC8 one",                 32'h0000_0001, 32'd0,         `OP_CRC8, 5'd0);
+        check_op("CRC8 AB",                  32'h0000_00AB, 32'd0,         `OP_CRC8, 5'd0);
+        check_op("CRC8 FF",                  32'h0000_00FF, 32'd0,         `OP_CRC8, 5'd0);
+
+        check_op("CRC16 1234",               32'h0000_1234, 32'd0,         `OP_CRC16, 5'd0);
+        check_op("CRC32 12345678",           32'h1234_5678, 32'd0,         `OP_CRC32, 5'd0);
+
+        // =================================================
+        // Summary
+        // =================================================
+        $display("====================================================");
+        $display(" ALU32 CORE TEST SUMMARY");
+        $display(" PASS = %0d", pass_count);
+        $display(" FAIL = %0d", fail_count);
+        $display("====================================================");
+
+        if (fail_count == 0) begin
+            $display("ALL TESTS PASSED!");
+        end else begin
+            $display("SOME TESTS FAILED. CHECK WAVEFORM AND LOG.");
+        end
+
+        #20;
+        $finish;
     end
-    
+
 endmodule
